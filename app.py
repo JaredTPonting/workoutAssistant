@@ -1,22 +1,32 @@
-# file: app.py
-
 import streamlit as st
 import pandas as pd
 import datetime
 import os
+import json
 import matplotlib.pyplot as plt
 
 DATA_FILE = "workout_data.csv"
+USER_FILE = "users.json"
 
 def load_data():
     if os.path.exists(DATA_FILE):
         return pd.read_csv(DATA_FILE, parse_dates=["date"])
-    return pd.DataFrame(columns=["date", "day", "exercise", "weight", "reps", "sets"])
+    return pd.DataFrame(columns=["user", "date", "day", "exercise", "weight", "reps", "sets"])
 
 def save_data(new_entries):
     df = load_data()
     df = pd.concat([df, pd.DataFrame(new_entries)], ignore_index=True)
     df.to_csv(DATA_FILE, index=False)
+
+def load_users():
+    if os.path.exists(USER_FILE):
+        with open(USER_FILE, "r") as f:
+            return json.load(f)
+    return {}
+
+def save_users(users):
+    with open(USER_FILE, "w") as f:
+        json.dump(users, f)
 
 def get_workout_plan(day):
     return {
@@ -27,7 +37,7 @@ def get_workout_plan(day):
         "Lower": ["Deadlift", "Squat", "Calf Raise"]
     }.get(day, [])
 
-def workout_page(day):
+def workout_page(user, day):
     st.header(f"Workout - {day}")
     today = datetime.date.today()
     workout = get_workout_plan(day)
@@ -40,6 +50,7 @@ def workout_page(day):
         sets = st.number_input(f"Sets for {exercise}", min_value=0, step=1, key=f"{exercise}_s")
         if weight and reps and sets:
             entries.append({
+                "user": user,
                 "date": today,
                 "day": day,
                 "exercise": exercise,
@@ -55,16 +66,17 @@ def workout_page(day):
         else:
             st.warning("Please enter workout data before saving.")
 
-def summary_page():
+def summary_page(user):
     st.header("Workout Summary")
     df = load_data()
+    df = df[df["user"] == user]
     if df.empty:
         st.info("No data yet.")
         return
 
+    df["date"] = pd.to_datetime(df["date"])
     exercise = st.selectbox("Select Exercise", df["exercise"].unique())
     ex_df = df[df["exercise"] == exercise].sort_values("date")
-    ex_df["date"] = pd.to_datetime(ex_df["date"])
 
     # Weekly volume graph
     ex_df["week"] = ex_df["date"].dt.to_period("W").apply(lambda r: r.start_time)
@@ -91,15 +103,50 @@ def summary_page():
     st.write("Max Weight:", ex_df["weight"].max())
     st.write("Total Volume (Weight x Reps x Sets):", ex_df["volume"].sum())
 
+def login():
+    st.sidebar.header("Login")
+    users = load_users()
+
+    login_tab, register_tab = st.sidebar.tabs(["Login", "Register"])
+
+    with login_tab:
+        user = st.text_input("Username")
+        password = st.text_input("Password", type="password")
+        if st.button("Log in"):
+            if user in users and users[user] == password:
+                st.session_state.user = user
+            else:
+                st.error("Invalid username or password")
+
+    with register_tab:
+        new_user = st.text_input("New Username")
+        new_pass = st.text_input("New Password", type="password")
+        if st.button("Create Account"):
+            if new_user in users:
+                st.warning("Username already exists")
+            elif not new_user or not new_pass:
+                st.warning("Username and password required")
+            else:
+                users[new_user] = new_pass
+                save_users(users)
+                st.success("Account created. Please log in.")
 
 def main():
     st.title("🏋️ Weightlifting Tracker")
+
+    if "user" not in st.session_state:
+        login()
+        return
+
+    user = st.session_state.user
+    st.sidebar.success(f"Logged in as {user}")
+
     selection = st.selectbox("Select View", ["Push", "Pull", "Legs", "Upper", "Lower", "Summary"])
 
     if selection == "Summary":
-        summary_page()
+        summary_page(user)
     else:
-        workout_page(selection)
+        workout_page(user, selection)
 
 if __name__ == "__main__":
     main()
