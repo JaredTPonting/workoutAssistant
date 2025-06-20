@@ -30,7 +30,7 @@ def save_users(users):
 
 def get_workout_plan(day):
     return {
-        "Push": ["Bench Press", "Overhead Press", "Tricep Pushdown"],
+        "Push": ["Bench Press", "Incline Bench Press", "DB Shoulder Press", ""],
         "Pull": ["Deadlift", "Pull-up", "Barbell Row"],
         "Legs": ["Squat", "Leg Press", "Calf Raise"],
         "Upper": ["Bench Press", "Pull-up", "Overhead Press"],
