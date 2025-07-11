@@ -56,7 +56,7 @@ def get_workout_plan(day):
         "Upper": [
             "Bench Press",
             "OHP",
-            "Shrugs"
+            "Shrugs",
             "Lat Raise"
         ],
         "Lower": [
